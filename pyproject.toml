@@ -11,6 +11,9 @@ python = ">=3.12"
 fastapi = "^0.115.10"
 uvicorn = {extras = ["standard"], version = "^0.34.0"}
 sqlalchemy = "^2.0.38"
+pycryptodome = "^3.21.0"
+python-jose = {extras = ["cryptodome"], version = "^3.4.0"}
+passlib = "^1.7.4"
 
 [build-system]
 requires = ["poetry-core"]

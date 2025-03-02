@@ -1,0 +1,7 @@
+
+oracle.db
+.env
+__pycache__
+.venv
+.idea
+.vscode
