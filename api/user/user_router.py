@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from services.auth import Auth, UserAuthData, get_auth, HashHelper, get_hash_helper
-from sqlalchemy.orm import Session
-from data.database import get_db_session
+from services.auth import Auth, UserAuthData, get_auth, HashHelper
+from sqlmodel import Session, select
 from data.models.user import User
+from data.database import get_db, engine
+from typing import Sequence
 import re
 
 user_router = APIRouter(prefix="/user")
@@ -14,26 +15,28 @@ class LoginPayload(BaseModel):
     password: str
 
 
+@user_router.get("/")
+def get_users(sesh: Session = Depends(get_db)) -> Sequence[User]:
+    return sesh.exec(select(User)).all()
+
+
 @user_router.post("/login")
 def login(
-    loginPayload: LoginPayload,
-    hash_helper: HashHelper = Depends(get_hash_helper),
-    auth: Auth = Depends(get_auth),
-    sesh: Session = Depends(get_db_session),
+        loginPayload: LoginPayload,
+        auth: Auth = Depends(get_auth),
+        sesh: Session = Depends(get_db),
 ) -> str:
-    user = (
-        sesh.query(User)
-        .filter(
+    user = sesh.exec(
+        select(User).where(
             (User.username == loginPayload.username_or_email)
             | (User.email == loginPayload.username_or_email)
         )
-        .first()
-    )
+    ).first()
 
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
-    if hash_helper.verify(loginPayload.password, user.password_hash) is False:
+    if HashHelper.verify(loginPayload.password, user.password_hash) is False:
         raise HTTPException(status_code=400, detail="Invalid credentials")
 
     user_data = UserAuthData(username=user.username, user_id=user.id, role=user.role)
@@ -51,19 +54,14 @@ class NewUserPayload(BaseModel):
 
 @user_router.post("/create")
 def create_user(
-    new_user_data: NewUserPayload,
-    hash_helper: HashHelper = Depends(get_hash_helper),
-    sesh: Session = Depends(get_db_session),
+        new_user_data: NewUserPayload,
+        sesh: Session = Depends(get_db),
 ):
     errors = []
-
-    if (
-        sesh.query(User).filter(User.username == new_user_data.username).first()
-        is not None
-    ):
+    if sesh.exec(select(User).where(User.username == new_user_data.username)).first() is not None:
         errors.append("Username already exists")
 
-    if sesh.query(User).filter(User.email == new_user_data.email).first() is not None:
+    if sesh.exec(select(User).where(User.email == new_user_data.email)).first() is not None:
         errors.append("Email already exists")
 
     def is_valid_email(email: str) -> bool:
@@ -111,7 +109,7 @@ def create_user(
     user = User(
         username=new_user_data.username,
         email=new_user_data.email,
-        password_hash=hash_helper.hash(new_user_data.password),
+        password_hash=HashHelper.hash(new_user_data.password),
     )
 
     sesh.add(user)

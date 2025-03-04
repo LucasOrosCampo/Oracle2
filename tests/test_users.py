@@ -1,18 +1,23 @@
-from api.user.user_router import NewUserPayload
-from data.models.user import User
-from fixtures import test_client, db_context
-import json
+from passlib.utils.binary import HASH64_CHARS
 
-def test_user_should_be_created(test_client, db_context):
+from services.auth import HashHelper
+from tests.fixtures import test_client
+from data.models.user import User
+import json
+from api.user.user_router import NewUserPayload
+
+def test_user_should_be_created(test_client):
     payload = NewUserPayload(username="test", email="mail@gmail.com", password="TestPa$$w0rd")
     result = test_client.post("/user/create", json=payload.model_dump())
     assert result.status_code == 200
-    user = db_context.query(User).filter(User.username == "test").first()
+    response = test_client.get("/user")
+    parsed_response = json.loads(response.text)
+    assert len(parsed_response) == 1
+    user = User(**(parsed_response[0]))
     assert user is not None
     assert user.username == "test"
     assert user.email == "mail@gmail.com"
-    assert user.password_hash is not None
-
+    assert HashHelper.verify(plain_password="TestPa$$w0rd", hashed_password=user.password_hash)
 
 def test_duplicate_username(test_client):
     # Create first user

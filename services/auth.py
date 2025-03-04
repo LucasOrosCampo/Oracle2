@@ -7,22 +7,21 @@ from passlib.context import CryptContext
 from dataclasses import dataclass, asdict
 
 class HashHelper:
-    def __init__(self):
-        self.pwd_context = CryptContext(
-            schemes=["argon2"],
-            deprecated="auto",
-            argon2__time_cost=6,
-            argon2__memory_cost=1024,
-        )
 
-    def hash(self, password: str) -> str:
-        return self.pwd_context.hash(password)
+    HASHER: CryptContext = CryptContext(
+        schemes=["argon2"],
+        deprecated="auto",
+        argon2__time_cost=6,
+        argon2__memory_cost=1024,
+    )
 
-    def verify(self, plain_password: str, hashed_password: str) -> bool:
-        return self.pwd_context.verify(plain_password, hashed_password)
+    @staticmethod
+    def hash(password: str) -> str:
+        return HashHelper.HASHER.hash(password)
 
-def get_hash_helper() -> HashHelper:
-    return HashHelper()
+    @staticmethod
+    def verify(plain_password: str, hashed_password: str) -> bool:
+        return HashHelper.HASHER.verify(plain_password, hashed_password)
 
 @dataclass
 class UserAuthData:
