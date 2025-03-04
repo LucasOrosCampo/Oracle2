@@ -39,6 +39,9 @@ def login(
     if HashHelper.verify(loginPayload.password, user.password_hash) is False:
         raise HTTPException(status_code=400, detail="Invalid credentials")
 
+    if user.id is None:
+        raise HTTPException(status_code=400, detail="User ID is missing")
+    
     user_data = UserAuthData(username=user.username, user_id=user.id, role=user.role)
 
     token = auth.create_token(user_data, False)

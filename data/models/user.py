@@ -4,7 +4,6 @@ from sqlalchemy.sql import func
 from sqlalchemy import Column, String
 
 class User(SQLModel, table=True):
-    __tablename__ = "user"
 
     id: Optional[int] = Field(default=None, primary_key=True)
     created_at: Optional[str] = Field(default_factory=lambda: func.now(),
