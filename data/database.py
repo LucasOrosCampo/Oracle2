@@ -16,11 +16,11 @@ PROD_DATABASE_URL = f"sqlite:///{os.path.join(os.path.expanduser("~"), 'oracle.d
 TEST_DATABASE_URL = f"sqlite:///{os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")), 'data', 'test_oracle.db')}"
 DEV_DATABASE_URL = f"sqlite:///{os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")), 'data', 'dev_oracle.db')}"
 
-environment_type = os.getenv("ENVIRONMENT_TYPE")
+environment_type = os.getenv("ENVIRONMENT_TYPE", EnvironmentType.DEVELOPMENT.value)
 database_url = {
-    "development": DEV_DATABASE_URL,
-    "prod": PROD_DATABASE_URL,
-    "test": TEST_DATABASE_URL
+    EnvironmentType.DEVELOPMENT.value: DEV_DATABASE_URL,
+    EnvironmentType.PROD.value: PROD_DATABASE_URL,
+    EnvironmentType.TEST.value: TEST_DATABASE_URL,
 }.get(environment_type, DEV_DATABASE_URL)
 
 engine = create_engine(database_url, connect_args={"check_same_thread": False})
