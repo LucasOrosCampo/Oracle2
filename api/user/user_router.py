@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from services.auth import Auth, UserAuthData, get_auth, HashHelper
+from services.auth import Auth, UserAuthData, get_admin, get_auth, HashHelper
 from sqlmodel import Session, select
 from data.models.user import User
 from data.database import get_db, engine
@@ -16,15 +16,17 @@ class LoginPayload(BaseModel):
 
 
 @user_router.get("/")
-def get_users(sesh: Session = Depends(get_db)) -> Sequence[User]:
+def get_users(
+    sesh: Session = Depends(get_db), admin: User = Depends(get_admin)
+) -> Sequence[User]:
     return sesh.exec(select(User)).all()
 
 
 @user_router.post("/login")
 def login(
-        loginPayload: LoginPayload,
-        auth: Auth = Depends(get_auth),
-        sesh: Session = Depends(get_db),
+    loginPayload: LoginPayload,
+    auth: Auth = Depends(get_auth),
+    sesh: Session = Depends(get_db),
 ) -> str:
     user = sesh.exec(
         select(User).where(
@@ -37,12 +39,12 @@ def login(
         raise HTTPException(status_code=404, detail="User not found")
 
     if HashHelper.verify(loginPayload.password, user.password_hash) is False:
-        raise HTTPException(status_code=400, detail="Invalid credentials")
+        raise HTTPException(status_code=401, detail="Invalid credentials")
 
     if user.id is None:
-        raise HTTPException(status_code=400, detail="User ID is missing")
-    
-    user_data = UserAuthData(username=user.username, user_id=user.id, role=user.role)
+        raise HTTPException(status_code=404, detail="User ID is missing")
+
+    user_data = UserAuthData(username=user.username, user_id=user.id)
 
     token = auth.create_token(user_data, False)
 
@@ -57,14 +59,20 @@ class NewUserPayload(BaseModel):
 
 @user_router.post("/create")
 def create_user(
-        new_user_data: NewUserPayload,
-        sesh: Session = Depends(get_db),
+    new_user_data: NewUserPayload,
+    sesh: Session = Depends(get_db),
 ):
     errors = []
-    if sesh.exec(select(User).where(User.username == new_user_data.username)).first() is not None:
+    if (
+        sesh.exec(select(User).where(User.username == new_user_data.username)).first()
+        is not None
+    ):
         errors.append("Username already exists")
 
-    if sesh.exec(select(User).where(User.email == new_user_data.email)).first() is not None:
+    if (
+        sesh.exec(select(User).where(User.email == new_user_data.email)).first()
+        is not None
+    ):
         errors.append("Email already exists")
 
     def is_valid_email(email: str) -> bool:
@@ -116,4 +124,33 @@ def create_user(
     )
 
     sesh.add(user)
+    sesh.commit()
+
+
+@user_router.post("/{user_name}/admin")
+def ugrade_user(
+    user_name: str, sesh: Session = Depends(get_db), admin: User = Depends(get_admin)
+):
+    user = sesh.exec(select(User).where(User.username == user_name)).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.admin:
+        raise HTTPException(status_code=400, detail="User is already admin")
+    user.admin = True
+    sesh.commit()
+
+
+@user_router.delete("/{user_name}/admin")
+def downgrade_user(
+    user_name: str, sesh: Session = Depends(get_db), admin: User = Depends(get_admin)
+):
+    user = sesh.exec(select(User).where(User.username == user_name)).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.admin is False:
+        raise HTTPException(status_code=400, detail="User is not an admin")
+    admin_count = len(sesh.exec(select(User).where(User.admin == True)).all())
+    if admin_count == 1 and user.admin:
+        raise HTTPException(status_code=400, detail="Can't downgrade the last admin")
+    user.admin = False
     sesh.commit()

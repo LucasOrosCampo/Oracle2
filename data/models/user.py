@@ -30,5 +30,4 @@ class User(SQLModel, table=True):
     duplicate_behavior: str = Field(default="skip_duplicates")
 
     # UTILS
-    role: int = Field(default=1)
-
+    admin: bool = Field(default=False)
