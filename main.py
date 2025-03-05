@@ -1,5 +1,4 @@
 from fastapi import FastAPI
-from data.database import init_db
 from api.user.user_router import user_router
 import uvicorn
 
@@ -13,5 +12,6 @@ async def root():
 
 
 if __name__ == "__main__":
+    from data.database import init_db
     init_db(drop_existing=False)
     uvicorn.run(app, host="0.0.0.0", port=7999)

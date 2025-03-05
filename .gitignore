@@ -5,3 +5,5 @@ __pycache__
 .venv
 .idea
 .vscode
+/data/test_oracle.db
+/data/dev_oracle.db
